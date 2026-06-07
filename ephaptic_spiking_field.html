@@ -117,6 +117,8 @@
       <div class="row"><label>adaptation &beta; <span id="vBeta"></span></label><input id="beta" type="range" min="0" max="12" step="0.1" value="6"></div>
       <div class="row"><label>theta depth <span id="vMth"></span></label><input id="mth" type="range" min="0" max="1" step="0.02" value="0.8"></div>
       <div class="row"><label>theta freq (hz) <span id="vFth"></span></label><input id="fth" type="range" min="3" max="12" step="0.5" value="8"></div>
+      <div class="row"><label>gamma depth (nesting) <span id="vMgm"></span></label><input id="mgm" type="range" min="0" max="1" step="0.02" value="0"></div>
+      <div class="row"><label>release (hold &harr; scan) <span id="vRel"></span></label><input id="rel" type="range" min="0" max="0.12" step="0.005" value="0"></div>
       <div class="row"><label>thermal noise <span id="vJN"></span></label><input id="jn" type="range" min="0" max="0.20" step="0.005" value="0.06"></div>
       <div class="row"><label>threshold <span id="vThr"></span></label><input id="thr" type="range" min="0.20" max="0.90" step="0.01" value="0.55"></div>
       <div class="row"><label>field retention <span id="vRet"></span></label><input id="ret" type="range" min="0.90" max="0.998" step="0.002" value="0.985"></div>
@@ -129,7 +131,7 @@
         <button id="pause">pause</button>
       </div>
       <input id="file" type="file" accept="image/*" multiple>
-      <div class="hint">click an island to seed the field onto it. set theta depth to 0 to remove the clock &mdash; the spikes lose their lock and the dream becomes churn. that is the result from the paper: the clock is what makes the spikes discrete.</div>
+      <div class="hint">click an island to seed the field onto it. set theta depth to 0 to remove the clock &mdash; the spikes lose their lock and the dream becomes churn. turn up <b>gamma depth</b> and <b>release</b> together to enter SCAN mode: the theta trough dissolves the percept and the gamma cycles re-form it &mdash; you can watch it breathe, re-derived every theta cycle, touring all the islands.</div>
     </div>
   </div>
 
@@ -154,6 +156,7 @@ const E = {
   v:[], a:[],              // membrane, adaptation per island
   t:0, dt:0.001,
   coup:0.18, beta:6, mth:0.8, fth:8, jn:0.06, thr:0.55, ret:0.985,
+  fgm:48, mgm:0, rel:0,    // nested gamma freq/depth, theta-release (hold<->scan)
   prev:new Float32Array(N),
   // metrics windows
   win:[], lockWin:[], moveWin:[], domWin:[], transWin:[],
@@ -180,11 +183,14 @@ function seedField(k){
 let lastDom=-1;
 function stepEngine(){
   const K=E.P.length; if(K===0) return;
-  const g=1+E.mth*Math.cos(2*Math.PI*E.fth*E.t*E.dt);
+  const cth=Math.cos(2*Math.PI*E.fth*E.t*E.dt);
+  const gth=1+E.mth*cth;                                  // theta excitability envelope
+  const cg=Math.cos(2*Math.PI*E.fgm*E.t*E.dt);
+  const G=gth*(1+E.mgm*cg);                               // gamma nested on theta
   const sp=new Uint8Array(K); let anySpike=0;
   for(let k=0;k<K;k++){
     const drive=dot(E.P[k],E.s);
-    const net=g*drive - E.beta*E.a[k] + E.jn*randn();
+    const net=G*drive - E.beta*E.a[k] + E.jn*randn();
     E.v[k]=0.90*E.v[k]+net;
     if(E.v[k]>E.thr){ sp[k]=1; E.v[k]=0; E.a[k]+=1; anySpike=1; }
     E.a[k]*=Math.exp(-E.dt/0.12);
@@ -195,6 +201,17 @@ function stepEngine(){
   } else {
     for(let i=0;i<N;i++) E.s[i]*=E.ret;
   }
+  // theta TROUGH releases the percept (the hold<->scan knob)
+  if(E.rel>0 && cth<0){ const rl=(-cth)*E.rel; for(let i=0;i<N;i++) E.s[i]=E.s[i]*(1-rl)+rl*randn(); }
+  // theta PEAK + gamma up RE-FORMS it: competitive, fatigue-aware read-reconstruct (bounded iteration)
+  if(E.mgm>0 && cth>0){
+    const gate=cth*Math.max(0,cg);
+    if(gate>0){
+      const w=new Float64Array(K); let sw=0;
+      for(let k=0;k<K;k++){ let m=dot(E.P[k],E.s)-1.5*E.a[k]; m=m>0?m:0; m=m*m*m*m; w[k]=m; sw+=m; }
+      if(sw>1e-9){ const eta=0.30*gate; for(let i=0;i<N;i++){ let rc=0; for(let k=0;k<K;k++) rc+=(w[k]/sw)*E.P[k][i]; E.s[i]+=eta*(rc-E.s[i]); } }
+    }
+  }
   let n=Math.sqrt(dot(E.s,E.s))||1; for(let i=0;i<N;i++) E.s[i]/=n;
 
   // metrics
@@ -202,7 +219,7 @@ function stepEngine(){
   E.prev.set(E.s);
   let best=0,bv=-1; for(let k=0;k<K;k++){ const o=Math.abs(dot(E.P[k],E.s)); if(o>bv){bv=o;best=k;} }
   const trans = (best!==lastDom)?1:0; lastDom=best;
-  const thetaHi = g>1+0.5*E.mth?1:0;
+  const thetaHi = gth>1+0.5*E.mth?1:0;
   E.win.push(anySpike?1:0); if(anySpike){E.lockWin.push(thetaHi);}
   E.moveWin.push(mv); E.transWin.push(trans); E.domWin.push(best);
   const CAP=1500;
@@ -210,7 +227,7 @@ function stepEngine(){
   if(E.moveWin.length>CAP)E.moveWin.shift(); if(E.transWin.length>CAP)E.transWin.shift(); if(E.domWin.length>CAP)E.domWin.shift();
 
   E.t++;
-  E._lastG=g; E._lastSp=sp; E._lastMove=mv; E._bound=best;
+  E._lastG=gth; E._lastSp=sp; E._lastMove=mv; E._bound=best;
 }
 
 // ---------- rendering ----------
@@ -381,6 +398,8 @@ bind('coup','coup',v=>v.toFixed(2));
 bind('beta','beta',v=>v.toFixed(1));
 bind('mth','mth',v=>v.toFixed(2));
 bind('fth','fth',v=>v.toFixed(1));
+bind('mgm','mgm',v=>v.toFixed(2));
+bind('rel','rel',v=>v.toFixed(3));
 bind('jn','jn',v=>v.toFixed(3));
 bind('thr','thr',v=>v.toFixed(2));
 bind('ret','ret',v=>v.toFixed(3));
