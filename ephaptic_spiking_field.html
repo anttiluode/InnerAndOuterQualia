@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ephaptic Spiking Field</title>
+<style>
+  :root{
+    --bg:#080810; --pan:#10101c; --pan2:#15152400; --edge:#23233a;
+    --ink:#e8e8f4; --dim:#7a7a95; --grn:#42f5a1; --blu:#2ec5ff;
+    --red:#ff3b6b; --yel:#f5c542; --vio:#a98bff;
+    --mono:'SFMono-Regular',ui-monospace,'JetBrains Mono','IBM Plex Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:
+      radial-gradient(1200px 700px at 80% -10%, #161630 0%, transparent 55%),
+      radial-gradient(900px 600px at -10% 110%, #0e1a22 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--mono); font-size:13px; overflow:hidden}
+  .wrap{height:100vh; display:flex; flex-direction:column; padding:14px 16px 10px; gap:10px}
+  header{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap}
+  h1{font-size:17px; font-weight:600; letter-spacing:.04em; margin:0; color:var(--ink)}
+  h1 b{color:var(--grn)}
+  .sub{color:var(--dim); font-size:11.5px; letter-spacing:.02em}
+  .stage{flex:1; display:grid; grid-template-columns:minmax(320px,1.05fr) minmax(360px,1.25fr) 232px;
+    gap:12px; min-height:0}
+  .card{background:linear-gradient(180deg,#13131f,#0f0f1a); border:1px solid var(--edge);
+    border-radius:10px; padding:10px 11px; min-height:0; display:flex; flex-direction:column}
+  .lab{font-size:10.5px; text-transform:uppercase; letter-spacing:.14em; color:var(--dim); margin-bottom:7px}
+  .lab .tag{float:right; text-transform:none; letter-spacing:0}
+  canvas{display:block; image-rendering:pixelated; border-radius:6px; background:#000}
+  /* left column */
+  #fieldWrap{flex:1; display:flex; align-items:center; justify-content:center; min-height:0}
+  #field{width:100%; height:auto; aspect-ratio:1/1; max-height:100%; box-shadow:0 0 0 1px #000,0 0 30px #0bff9933 inset}
+  .islands{display:grid; grid-template-columns:repeat(auto-fill,minmax(54px,1fr)); gap:7px; margin-top:9px}
+  .isl{position:relative; border:1px solid var(--edge); border-radius:6px; overflow:hidden; cursor:pointer}
+  .isl canvas{width:100%; aspect-ratio:1/1; border-radius:0}
+  .isl .bars{position:absolute; left:0; right:0; bottom:0; height:5px; display:flex}
+  .isl .res{background:var(--blu); height:100%}
+  .isl .fat{background:var(--red); height:100%}
+  .isl.flash{box-shadow:0 0 0 2px var(--yel),0 0 12px var(--yel)}
+  .isl .x{position:absolute; top:1px; right:2px; color:#fff8; font-size:10px; opacity:0; transition:.15s}
+  .isl:hover .x{opacity:1}
+  /* middle column */
+  #raster{flex:1; width:100%; min-height:120px}
+  #traces{width:100%; height:96px; margin-top:8px}
+  .read{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:9px}
+  .read div{background:#0c0c16; border:1px solid var(--edge); border-radius:6px; padding:6px 8px}
+  .read .k{color:var(--dim); font-size:9.5px; text-transform:uppercase; letter-spacing:.1em}
+  .read .v{font-size:16px; margin-top:2px}
+  /* controls */
+  .ctl{overflow-y:auto}
+  .row{margin:0 0 11px}
+  .row label{display:flex; justify-content:space-between; font-size:11px; color:var(--ink); margin-bottom:4px}
+  .row label span{color:var(--blu)}
+  input[type=range]{width:100%; height:3px; -webkit-appearance:none; appearance:none;
+    background:#2a2a40; border-radius:3px; outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--grn); cursor:pointer; box-shadow:0 0 8px #42f5a199}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border:none;border-radius:50%;background:var(--grn);cursor:pointer}
+  .btns{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px}
+  button{font-family:var(--mono); font-size:11px; color:var(--ink); background:#181826;
+    border:1px solid var(--edge); border-radius:6px; padding:7px 9px; cursor:pointer; letter-spacing:.02em}
+  button:hover{border-color:var(--grn); color:var(--grn)}
+  button.on{background:#0b2a1e; border-color:var(--grn); color:var(--grn)}
+  .seg{display:flex; gap:0; margin-top:4px}
+  .seg button{flex:1; border-radius:0}
+  .seg button:first-child{border-radius:6px 0 0 6px}
+  .seg button:last-child{border-radius:0 6px 6px 0; border-left:none}
+  .hint{color:var(--dim); font-size:10px; line-height:1.5; margin-top:8px}
+  .foot{color:var(--dim); font-size:10.5px; text-align:center; letter-spacing:.03em}
+  .foot b{color:#9a9ab5}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ephaptic <b>Spiking</b> Field</h1>
+    <span class="sub">images become spectral islands &middot; the held standing wave is the content, the sparse theta&#8209;locked spikes write it</span>
+  </header>
+
+  <div class="stage">
+    <!-- LEFT : the content / qualia side -->
+    <div class="card">
+      <div class="lab">side a &middot; the held standing wave <span class="tag" id="boundTag">&mdash;</span></div>
+      <div id="fieldWrap"><canvas id="field" width="64" height="64"></canvas></div>
+      <div class="lab" style="margin-top:9px">spectral islands &middot; <span style="color:var(--blu)">resonance</span> / <span style="color:var(--red)">fatigue</span></div>
+      <div class="islands" id="islands"></div>
+    </div>
+
+    <!-- MIDDLE : the communication side -->
+    <div class="card">
+      <div class="lab">side b &middot; spikes (islands &times; time, shaded by theta phase)</div>
+      <canvas id="raster" width="520" height="240"></canvas>
+      <div class="lab" style="margin-top:8px">the delta&#8209;code &middot; <span style="color:var(--yel)">theta gain</span> &amp; <span style="color:var(--red)">field velocity |ds|</span></div>
+      <canvas id="traces" width="520" height="96"></canvas>
+      <div class="read">
+        <div><div class="k">sparsity</div><div class="v" id="rSpars">&mdash;</div></div>
+        <div><div class="k">theta&#8209;lock</div><div class="v" id="rLock">&mdash;</div></div>
+        <div><div class="k">silence&times;</div><div class="v" id="rSil">&mdash;</div></div>
+        <div><div class="k">rate hz</div><div class="v" id="rRate">&mdash;</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT : controls -->
+    <div class="card ctl">
+      <div class="lab">controls</div>
+      <div class="seg" id="mode">
+        <button data-m="recall">recall</button>
+        <button data-m="dream" class="on">dream</button>
+      </div>
+      <div class="hint" style="margin-bottom:10px">recall &rarr; low adaptation, the field locks onto one percept and holds it silently. dream &rarr; high adaptation, it tours the islands, spiking at each transition.</div>
+
+      <div class="row"><label>coupling <span id="vCoup"></span></label><input id="coup" type="range" min="0.02" max="0.40" step="0.01" value="0.18"></div>
+      <div class="row"><label>adaptation &beta; <span id="vBeta"></span></label><input id="beta" type="range" min="0" max="12" step="0.1" value="6"></div>
+      <div class="row"><label>theta depth <span id="vMth"></span></label><input id="mth" type="range" min="0" max="1" step="0.02" value="0.8"></div>
+      <div class="row"><label>theta freq (hz) <span id="vFth"></span></label><input id="fth" type="range" min="3" max="12" step="0.5" value="8"></div>
+      <div class="row"><label>thermal noise <span id="vJN"></span></label><input id="jn" type="range" min="0" max="0.20" step="0.005" value="0.06"></div>
+      <div class="row"><label>threshold <span id="vThr"></span></label><input id="thr" type="range" min="0.20" max="0.90" step="0.01" value="0.55"></div>
+      <div class="row"><label>field retention <span id="vRet"></span></label><input id="ret" type="range" min="0.90" max="0.998" step="0.002" value="0.985"></div>
+      <div class="row"><label>speed <span id="vSpd"></span></label><input id="spd" type="range" min="1" max="30" step="1" value="10"></div>
+
+      <div class="btns">
+        <button id="addImg">+ image</button>
+        <button id="addProc">+ pattern</button>
+        <button id="reseed">reseed field</button>
+        <button id="pause">pause</button>
+      </div>
+      <input id="file" type="file" accept="image/*" multiple>
+      <div class="hint">click an island to seed the field onto it. set theta depth to 0 to remove the clock &mdash; the spikes lose their lock and the dream becomes churn. that is the result from the paper: the clock is what makes the spikes discrete.</div>
+    </div>
+  </div>
+
+  <div class="foot">PerceptionLab &middot; <b>do not hype. do not lie. just show.</b> &middot; nothing is uploaded; images stay in your browser</div>
+</div>
+
+<script>
+"use strict";
+const GRID=40, N=GRID*GRID;
+const $=id=>document.getElementById(id);
+
+// ---------- gaussian noise ----------
+let spare=null;
+function randn(){ if(spare!==null){const s=spare;spare=null;return s;}
+  let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
+  const m=Math.sqrt(-2*Math.log(u)); spare=m*Math.sin(2*Math.PI*v); return m*Math.cos(2*Math.PI*v); }
+
+// ---------- the engine ----------
+const E = {
+  P:[], names:[],          // island patterns (Float32, zero-mean unit-norm) + labels
+  s:new Float32Array(N),   // the held standing wave
+  v:[], a:[],              // membrane, adaptation per island
+  t:0, dt:0.001,
+  coup:0.18, beta:6, mth:0.8, fth:8, jn:0.06, thr:0.55, ret:0.985,
+  prev:new Float32Array(N),
+  // metrics windows
+  win:[], lockWin:[], moveWin:[], domWin:[], transWin:[],
+};
+
+function dot(a,b){ let s=0; for(let i=0;i<N;i++) s+=a[i]*b[i]; return s; }
+
+function addPattern(flat, name){
+  // zero-mean, unit-norm
+  let m=0; for(let i=0;i<N;i++) m+=flat[i]; m/=N;
+  let n=0; for(let i=0;i<N;i++){ flat[i]-=m; n+=flat[i]*flat[i]; }
+  n=Math.sqrt(n)||1; const p=new Float32Array(N); for(let i=0;i<N;i++) p[i]=flat[i]/n;
+  E.P.push(p); E.names.push(name||('isl'+E.P.length)); E.v.push(0); E.a.push(0);
+  buildIslandTiles();
+}
+function removePattern(k){ E.P.splice(k,1); E.names.splice(k,1); E.v.splice(k,1); E.a.splice(k,1); buildIslandTiles(); }
+
+function seedField(k){
+  if(E.P.length===0){ for(let i=0;i<N;i++) E.s[i]=randn(); }
+  else { const p=E.P[k%E.P.length]; for(let i=0;i<N;i++) E.s[i]=p[i]+0.35*randn(); }
+  let n=Math.sqrt(dot(E.s,E.s))||1; for(let i=0;i<N;i++) E.s[i]/=n;
+}
+
+let lastDom=-1;
+function stepEngine(){
+  const K=E.P.length; if(K===0) return;
+  const g=1+E.mth*Math.cos(2*Math.PI*E.fth*E.t*E.dt);
+  const sp=new Uint8Array(K); let anySpike=0;
+  for(let k=0;k<K;k++){
+    const drive=dot(E.P[k],E.s);
+    const net=g*drive - E.beta*E.a[k] + E.jn*randn();
+    E.v[k]=0.90*E.v[k]+net;
+    if(E.v[k]>E.thr){ sp[k]=1; E.v[k]=0; E.a[k]+=1; anySpike=1; }
+    E.a[k]*=Math.exp(-E.dt/0.12);
+  }
+  // field written by spikes (ephaptic: islands talk only through the shared field)
+  if(anySpike){
+    for(let i=0;i<N;i++){ let inj=0; for(let k=0;k<K;k++) if(sp[k]) inj+=E.P[k][i]; E.s[i]=E.ret*E.s[i]+E.coup*inj; }
+  } else {
+    for(let i=0;i<N;i++) E.s[i]*=E.ret;
+  }
+  let n=Math.sqrt(dot(E.s,E.s))||1; for(let i=0;i<N;i++) E.s[i]/=n;
+
+  // metrics
+  let mv=0; for(let i=0;i<N;i++){ const d=E.s[i]-E.prev[i]; mv+=d*d; } mv=Math.sqrt(mv);
+  E.prev.set(E.s);
+  let best=0,bv=-1; for(let k=0;k<K;k++){ const o=Math.abs(dot(E.P[k],E.s)); if(o>bv){bv=o;best=k;} }
+  const trans = (best!==lastDom)?1:0; lastDom=best;
+  const thetaHi = g>1+0.5*E.mth?1:0;
+  E.win.push(anySpike?1:0); if(anySpike){E.lockWin.push(thetaHi);}
+  E.moveWin.push(mv); E.transWin.push(trans); E.domWin.push(best);
+  const CAP=1500;
+  if(E.win.length>CAP)E.win.shift(); if(E.lockWin.length>CAP)E.lockWin.shift();
+  if(E.moveWin.length>CAP)E.moveWin.shift(); if(E.transWin.length>CAP)E.transWin.shift(); if(E.domWin.length>CAP)E.domWin.shift();
+
+  E.t++;
+  E._lastG=g; E._lastSp=sp; E._lastMove=mv; E._bound=best;
+}
+
+// ---------- rendering ----------
+const fc=$('field'), fx=fc.getContext('2d'); fc.width=GRID; fc.height=GRID;
+const fimg=fx.createImageData(GRID,GRID);
+function ph(t){ // phosphor green palette 0..1
+  const r=Math.max(0,Math.min(255, 30*t + 200*t*t));
+  const gg=Math.max(0,Math.min(255, 255*Math.pow(t,0.7)));
+  const b=Math.max(0,Math.min(255, 120*t + 60*t*t*t));
+  return [r,gg,b];
+}
+function drawField(){
+  // contrast stretch
+  let mn=1e9,mx=-1e9; for(let i=0;i<N;i++){ const x=E.s[i]; if(x<mn)mn=x; if(x>mx)mx=x; }
+  const rng=(mx-mn)||1;
+  for(let i=0;i<N;i++){ const t=(E.s[i]-mn)/rng; const c=ph(t); const j=i*4;
+    fimg.data[j]=c[0]; fimg.data[j+1]=c[1]; fimg.data[j+2]=c[2]; fimg.data[j+3]=255; }
+  fx.putImageData(fimg,0,0);
+}
+
+// raster
+const rc=$('raster'), rx=rc.getContext('2d');
+const rasterCols=[]; // each col: {g, spikes:[k...]}
+function pushRaster(){ rasterCols.push({g:E._lastG, sp:E._lastSp?Array.from(E._lastSp):[]});
+  if(rasterCols.length>rc.width) rasterCols.shift(); }
+function drawRaster(){
+  const W=rc.width,H=rc.height,K=Math.max(1,E.P.length);
+  rx.clearRect(0,0,W,H);
+  const x0=W-rasterCols.length;
+  for(let c=0;c<rasterCols.length;c++){
+    const col=rasterCols[c], x=x0+c;
+    // theta shading
+    const tg=(col.g-(1-E.mth))/(2*E.mth+1e-6); // 0..1
+    rx.fillStyle='rgba(46,197,255,'+(0.06+0.10*Math.max(0,tg))+')'; rx.fillRect(x,0,1,H);
+  }
+  const rowH=H/K;
+  for(let c=0;c<rasterCols.length;c++){
+    const col=rasterCols[c], x=x0+c;
+    for(let k=0;k<col.sp.length;k++) if(col.sp[k]){
+      rx.fillStyle='#ff3b6b'; rx.fillRect(x, H-(k+1)*rowH+1, 2, rowH-2);
+    }
+  }
+  // island gridlines
+  rx.strokeStyle='#ffffff10';
+  for(let k=1;k<K;k++){ rx.beginPath(); rx.moveTo(0,H-k*rowH); rx.lineTo(W,H-k*rowH); rx.stroke(); }
+}
+
+// traces (theta + |ds|)
+const tc=$('traces'), tx=tc.getContext('2d');
+const moveHist=[], gHist=[];
+function pushTrace(){ moveHist.push(E._lastMove); gHist.push(E._lastG);
+  if(moveHist.length>tc.width){moveHist.shift();gHist.shift();} }
+function drawTraces(){
+  const W=tc.width,H=tc.height; tx.clearRect(0,0,W,H);
+  // theta
+  tx.strokeStyle='#f5c54288'; tx.lineWidth=1; tx.beginPath();
+  for(let i=0;i<gHist.length;i++){ const x=W-gHist.length+i; const y=H-((gHist[i]-(1-E.mth))/(2*E.mth+1e-6))*H*0.5-H*0.25;
+    i?tx.lineTo(x,y):tx.moveTo(x,y);} tx.stroke();
+  // |ds| (auto-scaled)
+  let mx=1e-6; for(const m of moveHist) if(m>mx)mx=m;
+  tx.strokeStyle='#ff3b6b'; tx.lineWidth=1.2; tx.beginPath();
+  for(let i=0;i<moveHist.length;i++){ const x=W-moveHist.length+i; const y=H-(moveHist[i]/mx)*(H-6)-3;
+    i?tx.lineTo(x,y):tx.moveTo(x,y);} tx.stroke();
+}
+
+// island tiles
+function buildIslandTiles(){
+  const host=$('islands'); host.innerHTML='';
+  E.P.forEach((p,k)=>{
+    const d=document.createElement('div'); d.className='isl'; d.title='click to seed field onto '+E.names[k];
+    const cv=document.createElement('canvas'); cv.width=GRID; cv.height=GRID;
+    const cx=cv.getContext('2d'); const im=cx.createImageData(GRID,GRID);
+    let mn=1e9,mx=-1e9; for(let i=0;i<N;i++){if(p[i]<mn)mn=p[i];if(p[i]>mx)mx=p[i];} const rg=(mx-mn)||1;
+    for(let i=0;i<N;i++){ const t=(p[i]-mn)/rg; const c=ph(t); const j=i*4; im.data[j]=c[0];im.data[j+1]=c[1];im.data[j+2]=c[2];im.data[j+3]=255;}
+    cx.putImageData(im,0,0);
+    const bars=document.createElement('div'); bars.className='bars';
+    const res=document.createElement('div'); res.className='res';
+    const fat=document.createElement('div'); fat.className='fat';
+    bars.appendChild(res); bars.appendChild(fat);
+    const x=document.createElement('div'); x.className='x'; x.textContent='\u00d7';
+    d.appendChild(cv); d.appendChild(bars); d.appendChild(x);
+    d.onclick=(ev)=>{ if(ev.target===x){ removePattern(k); } else { seedField(k); } };
+    host.appendChild(d);
+  });
+}
+function updateIslandMeters(){
+  const host=$('islands'); const tiles=host.children;
+  for(let k=0;k<E.P.length;k++){
+    const res=Math.min(1,Math.abs(dot(E.P[k],E.s)));
+    const fat=Math.min(1,E.a[k]/3);
+    const t=tiles[k]; if(!t)continue;
+    const bars=t.querySelector('.bars');
+    bars.children[0].style.width=(res*100*0.5)+'%';
+    bars.children[1].style.width=(fat*100*0.5)+'%';
+    if(E._lastSp&&E._lastSp[k]) t.classList.add('flash'); else t.classList.remove('flash');
+  }
+}
+
+// ---------- procedural islands ----------
+function proc(kind,seed){
+  const f=new Float32Array(N); const xv=(i)=>((i%GRID)/(GRID-1)), yv=(i)=>(Math.floor(i/GRID)/(GRID-1));
+  const ph0=seed*1.7, fr=1+ (seed%3);
+  for(let i=0;i<N;i++){ const x=xv(i), y=yv(i); let val=0;
+    switch(kind){
+      case 0: val=x; break;                                   // horizontal gradient (sky/earth)
+      case 1: val=y; break;                                   // vertical gradient
+      case 2: val=Math.sin(2*Math.PI*fr*x+ph0); break;        // vertical grating
+      case 3: val=Math.sin(2*Math.PI*fr*y+ph0); break;        // horizontal grating
+      case 4: { const dx=x-0.5,dy=y-0.5; val=Math.sin(12*Math.sqrt(dx*dx+dy*dy)+ph0); break; } // radial
+      case 5: { const dx=x-0.5,dy=y-0.5; val=Math.sin(2*Math.PI*2*x+ph0)*Math.exp(-(dx*dx+dy*dy)*8); break; } // gabor
+      default: val=Math.sin(2*Math.PI*fr*(x+y)+ph0);
+    }
+    f[i]=val;
+  }
+  return f;
+}
+let procCount=0;
+function addProc(){ const k=procCount%7; addPattern(proc(k,procCount), 'p'+(procCount+1)); procCount++; }
+
+// image -> pattern
+function imageToPattern(img,name){
+  const off=document.createElement('canvas'); off.width=GRID; off.height=GRID;
+  const oc=off.getContext('2d'); oc.drawImage(img,0,0,GRID,GRID);
+  const d=oc.getImageData(0,0,GRID,GRID).data; const f=new Float32Array(N);
+  for(let i=0;i<N;i++){ f[i]=(0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2])/255; }
+  addPattern(f,name);
+}
+
+// ---------- metrics readout ----------
+function updateReadouts(){
+  const K=Math.max(1,E.P.length);
+  const slots=E.win.length*K;
+  const spikes=E.win.reduce((a,b)=>a+b,0);
+  // sparsity: spike-steps fraction (per island-step is too tiny to read; show spike-step %)
+  const spars = E.win.length? (100*spikes/E.win.length) : 0;
+  const lock = E.lockWin.length? (100*E.lockWin.reduce((a,b)=>a+b,0)/E.lockWin.length) : 0;
+  // silence ratio: |ds| at transitions vs dwells
+  let dwell=0,nd=0,tr=0,nt=0;
+  const near=new Array(E.moveWin.length).fill(false);
+  for(let i=0;i<E.transWin.length;i++) if(E.transWin[i]) for(let j=Math.max(0,i-3);j<=i+4&&j<near.length;j++) near[j]=true;
+  for(let i=0;i<E.moveWin.length;i++){ if(near[i]){tr+=E.moveWin[i];nt++;} else {dwell+=E.moveWin[i];nd++;} }
+  const sil = (nd&&nt&&dwell>0)? ((tr/nt)/(dwell/nd)) : 0;
+  const secs = E.win.length*E.dt;
+  const rate = secs>0? spikes/secs : 0;
+  $('rSpars').textContent=spars.toFixed(1)+'%';
+  $('rLock').textContent=lock.toFixed(0)+'%';
+  $('rSil').textContent=(sil>=1?sil.toFixed(0):sil.toFixed(1))+'\u00d7';
+  $('rRate').textContent=rate.toFixed(1);
+  $('boundTag').textContent = E.P.length? ('bound: '+E.names[E._bound]) : '\u2014';
+}
+
+// ---------- loop ----------
+let paused=false;
+function frame(){
+  if(!paused){
+    const steps=+$('spd').value;
+    for(let n=0;n<steps;n++){ stepEngine(); pushRaster(); pushTrace(); }
+    drawField(); drawRaster(); drawTraces(); updateIslandMeters(); updateReadouts();
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- wire controls ----------
+function bind(id,key,fmt){ const el=$(id), out=$('v'+id.charAt(0).toUpperCase()+id.slice(1));
+  const upd=()=>{ E[key]=+el.value; if(out) out.textContent=fmt?fmt(+el.value):(+el.value); };
+  el.addEventListener('input',upd); upd(); }
+bind('coup','coup',v=>v.toFixed(2));
+bind('beta','beta',v=>v.toFixed(1));
+bind('mth','mth',v=>v.toFixed(2));
+bind('fth','fth',v=>v.toFixed(1));
+bind('jn','jn',v=>v.toFixed(3));
+bind('thr','thr',v=>v.toFixed(2));
+bind('ret','ret',v=>v.toFixed(3));
+$('spd').addEventListener('input',()=>$('vSpd').textContent=$('spd').value); $('vSpd').textContent=$('spd').value;
+
+document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#mode button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  if(b.dataset.m==='recall'){ $('beta').value=0.6; } else { $('beta').value=6; }
+  $('beta').dispatchEvent(new Event('input'));
+});
+$('addProc').onclick=addProc;
+$('reseed').onclick=()=>seedField(Math.floor(Math.random()*Math.max(1,E.P.length)));
+$('pause').onclick=()=>{paused=!paused; $('pause').classList.toggle('on',paused); $('pause').textContent=paused?'resume':'pause';};
+$('addImg').onclick=()=>$('file').click();
+$('file').onchange=(e)=>{ for(const f of e.target.files){ const img=new Image();
+  img.onload=()=>{ imageToPattern(img,f.name.slice(0,8)); URL.revokeObjectURL(img.src); };
+  img.src=URL.createObjectURL(f); } e.target.value=''; };
+
+// ---------- boot ----------
+for(let i=0;i<6;i++) addProc();
+seedField(0);
+frame();
+</script>
+</body>
+</html>
