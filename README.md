@@ -5,6 +5,8 @@ Repo: [anttiluode/InnerAndOuterQualia](https://github.com/anttiluode/InnerAndOut
 
 ![pic](pic1.png)
 
+Try it live at: https://anttiluode.github.io/InnerAndOuterQualia/
+
 One engine with two sides. A continuous **held standing wave** `s` — the content, the inner side — is written by **sparse, theta-locked spikes** from integrate-and-fire spectral islands — the communication, the outer side. The islands never touch each other directly; they talk only through the shared field. That is the ephaptic loop, and `W = Σ pₖpₖᵀ` is the holographic plate.
 
 The inner side is the candidate for what is *felt*. The outer side is what an electrode would see. The repo is named for that split, and it is a split this code makes concrete without pretending to close it.
