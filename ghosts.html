@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GHOSTS — what a pile of images secretly shares</title>
+<style>
+  :root{
+    --bg:#0b0c10; --pan:#111319; --pan2:#0e1015; --edge:#23252f;
+    --ink:#e9e6dd; --dim:#8a8a99; --faint:#5a5b68;
+    --amber:#f0a830; --cyan:#36d6e7; --violet:#b07cff; --magenta:#ff4d8d;
+    --good:#46d39a;
+    --serif:'Iowan Old Style','Palatino Linotype','Book Antiqua',Georgia,'Times New Roman',serif;
+    --mono:'SFMono-Regular',ui-monospace,'JetBrains Mono','IBM Plex Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:
+      radial-gradient(900px 600px at 88% -8%, #142033 0%, transparent 55%),
+      radial-gradient(800px 600px at -8% 112%, #21102a 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--mono); font-size:13.5px; line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px; margin:0 auto; padding:30px 26px 70px}
+
+  /* header */
+  header{border-bottom:1px solid var(--edge); padding-bottom:20px; margin-bottom:24px}
+  .kicker{font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--amber); margin:0 0 8px}
+  h1{font-family:var(--serif); font-weight:600; font-size:54px; line-height:.98; margin:0 0 10px; letter-spacing:-.01em}
+  h1 .em{font-style:italic; color:var(--cyan)}
+  .lede{color:var(--dim); font-size:14px; max-width:680px; margin:0}
+  .lede b{color:var(--ink); font-weight:600}
+
+  /* drop / controls bar */
+  .bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:22px 0 26px}
+  .drop{
+    flex:1; min-width:260px; border:1.5px dashed #34384a; border-radius:12px;
+    padding:16px 18px; cursor:pointer; transition:.18s; background:#0d0f15;
+    display:flex; align-items:center; gap:14px;
+  }
+  .drop:hover,.drop.hot{border-color:var(--amber); background:#15120c}
+  .drop .big{font-family:var(--serif); font-size:20px; color:var(--ink)}
+  .drop .sm{color:var(--faint); font-size:11.5px}
+  button{
+    font-family:var(--mono); font-size:12px; color:var(--ink); background:#191b22;
+    border:1px solid var(--edge); border-radius:9px; padding:11px 15px; cursor:pointer; letter-spacing:.02em;
+    transition:.15s; white-space:nowrap;
+  }
+  button:hover{border-color:var(--amber); color:var(--amber)}
+  button.prim{background:linear-gradient(180deg,#f0a830,#d8901c); color:#1a1206; border:none; font-weight:600}
+  button.prim:hover{filter:brightness(1.08); color:#1a1206}
+  input[type=file]{display:none}
+
+  /* main grid */
+  .grid{display:grid; grid-template-columns:1fr 392px; gap:22px; align-items:start}
+  @media(max-width:920px){ .grid{grid-template-columns:1fr} h1{font-size:40px} }
+
+  .card{background:linear-gradient(180deg,var(--pan),var(--pan2)); border:1px solid var(--edge);
+    border-radius:14px; padding:18px 18px 16px}
+  .lab{font-size:10.5px; text-transform:uppercase; letter-spacing:.18em; color:var(--dim); margin:0 0 13px}
+  .lab .r{float:right; letter-spacing:.04em; text-transform:none; color:var(--faint)}
+
+  /* hero */
+  .hero{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px}
+  .heroCell{text-align:center}
+  .heroCell canvas{width:100%; aspect-ratio:1/1; border-radius:12px; background:#000;
+    image-rendering:auto; box-shadow:0 0 0 1px #000, 0 14px 40px #0008}
+  .heroCell .nm{font-family:var(--serif); font-size:16px; margin-top:9px}
+  .heroCell .sub{color:var(--faint); font-size:11px}
+
+  /* ghost gallery */
+  .gallery{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+  .gtile{opacity:0; transform:translateY(8px); animation:rise .5s forwards}
+  @keyframes rise{to{opacity:1; transform:none}}
+  .gtile canvas{width:100%; aspect-ratio:1/1; border-radius:9px; background:#000; display:block;
+    box-shadow:0 0 0 1px #0008}
+  .gtile .gl{display:flex; justify-content:space-between; font-size:10px; color:var(--dim); margin-top:5px}
+  .gtile .gl b{color:var(--ink)}
+  .bar2{height:3px; border-radius:3px; background:#22242e; margin-top:4px; overflow:hidden}
+  .bar2 i{display:block; height:100%; background:linear-gradient(90deg,var(--cyan),var(--violet),var(--magenta))}
+
+  /* spectrum */
+  .spec{display:flex; align-items:flex-end; gap:5px; height:96px; padding-top:6px}
+  .spec .col{flex:1; background:linear-gradient(180deg,var(--cyan),var(--violet)); border-radius:3px 3px 0 0; min-height:2px;
+    position:relative; transition:height .4s}
+  .spec .col:first-child{background:linear-gradient(180deg,var(--amber),var(--magenta))}
+  .spec .col span{position:absolute; bottom:-16px; left:0; right:0; text-align:center; font-size:9px; color:var(--faint)}
+
+  .dom{margin-top:26px; text-align:center}
+  .dom .num{font-family:var(--serif); font-size:46px; line-height:1; color:var(--amber)}
+  .dom .num.flat{color:var(--cyan)}
+  .dom .cap{font-size:11px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; margin-top:4px}
+  .verdict{margin-top:14px; padding:13px 14px; border-radius:10px; background:#0d0f15; border:1px solid var(--edge);
+    font-size:12.5px; color:var(--ink); line-height:1.5}
+  .verdict b{color:var(--amber)}
+
+  /* living tour */
+  #tour{width:100%; aspect-ratio:1/1; border-radius:12px; background:#000; display:block;
+    box-shadow:0 0 0 1px #000, 0 0 40px #36d6e722 inset}
+  .tourcap{font-size:11px; color:var(--dim); margin-top:9px; min-height:30px}
+  .tourcap b{color:var(--ink)}
+
+  /* per-image strip */
+  .strip{display:grid; grid-template-columns:repeat(auto-fill,minmax(58px,1fr)); gap:8px}
+  .ptile{position:relative; border-radius:7px; overflow:hidden; border:1px solid #1c1e26}
+  .ptile.out{border-color:var(--magenta); box-shadow:0 0 0 1px var(--magenta)}
+  .ptile canvas{width:100%; aspect-ratio:1/1; display:block}
+  .ptile .tb{position:absolute; left:0; right:0; bottom:0; height:4px; background:#0008}
+  .ptile .tb i{display:block; height:100%; background:var(--good)}
+  .ptile.out .tb i{background:var(--magenta)}
+  .ptile .tag{position:absolute; top:2px; left:3px; font-size:8px; color:var(--magenta); text-shadow:0 0 4px #000}
+
+  .note{color:var(--faint); font-size:11.5px; line-height:1.6; margin-top:10px}
+  .note b{color:var(--dim)}
+  footer{margin-top:40px; border-top:1px solid var(--edge); padding-top:18px; color:var(--faint); font-size:11.5px}
+  footer b{color:var(--dim)}
+  .hidden{display:none!important}
+  .spin{display:inline-block; width:13px; height:13px; border:2px solid #ffffff22; border-top-color:var(--amber);
+    border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px; margin-right:7px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="kicker">PerceptionLab · training-free · private · in your browser</p>
+    <h1>The <span class="em">Ghosts</span></h1>
+    <p class="lede">Drop in a pile of images. This finds the <b>strongest shared modes</b> — the visual structure every picture has in common — and ranks them. It's the eigenmodes of your set's pixel covariance, computed in one shot, <b>nothing uploaded</b>. Useful for spotting a dataset's hidden confound; fun for finding the ghost that haunts your camera roll.</p>
+  </header>
+
+  <div class="bar">
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/*" multiple>
+      <div>
+        <div class="big">＋ Drop images here</div>
+        <div class="sm">or click to choose · 5–500 works best · they never leave this page</div>
+      </div>
+    </label>
+    <button id="demoH">demo: 120 landscapes</button>
+    <button id="demoF">demo: diverse set</button>
+    <button class="prim" id="card">⬇ save ghost card</button>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <div class="card">
+      <p class="lab">the shared structure <span class="r" id="kcount">—</span></p>
+      <div class="hero">
+        <div class="heroCell">
+          <canvas id="meanC" width="64" height="64"></canvas>
+          <div class="nm">The average</div>
+          <div class="sub">what's literally common to all</div>
+        </div>
+        <div class="heroCell">
+          <canvas id="ghost0" width="64" height="64"></canvas>
+          <div class="nm">The Ghost</div>
+          <div class="sub">strongest shared mode</div>
+        </div>
+      </div>
+      <p class="lab" style="margin-top:20px">the modes · strongest first <span class="r">share of shared structure</span></p>
+      <div class="gallery" id="gallery"></div>
+
+      <p class="lab" style="margin-top:24px">every image · <span style="color:var(--good)">typicality</span> · <span style="color:var(--magenta)">outliers flagged</span></p>
+      <div class="strip" id="strip"></div>
+      <p class="note" id="stripnote"></p>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="card">
+        <p class="lab">how much do they share? <span class="r">eigenvalue spectrum</span></p>
+        <div class="spec" id="spec"></div>
+        <div class="dom">
+          <div class="num" id="domNum">—</div>
+          <div class="cap">dominance · mode&nbsp;1 vs mode&nbsp;2</div>
+        </div>
+        <div class="verdict" id="verdict">Load some images to begin.</div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <p class="lab">the living view <span class="r">the engine, as an eigensolver</span></p>
+        <canvas id="tour" width="96" height="96"></canvas>
+        <div class="tourcap" id="tourcap"></div>
+        <p class="note">This is the same dreaming-field engine from the series, run as an eigensolver: it surfaces the modes your images are built from, strongest first, then climbs the spectrum. <b>It cannot show anything that isn't already in your images.</b></p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <b>What this is:</b> principal eigenmodes of your image set (PCA on the pixel covariance), computed via the snapshot trick and rendered. The value is convenience, privacy, and the dominance readout — not new math. <b>What it isn't:</b> a claim about consciousness. The qualia interpretation that motivates the wider project is the bet, and nothing here touches it. This is the mechanism being useful on its own terms.<br><br>
+    PerceptionLab · <b>do not hype. do not lie. just show.</b> · everything runs locally; no image ever leaves your browser.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const G = 64, CH = 3, D = G*G*CH;
+const $ = id => document.getElementById(id);
+const NG = 8;                                  // ghosts to extract
+
+let RAW = [];          // {rgba:Uint8ClampedArray(G*G*4), name}
+let P = [];            // normalized Float32Array(D) per image
+let ghosts = [], lambdas = [], meanVec = null;
+
+// ---------- image -> square G×G ----------
+const off = document.createElement('canvas'); off.width=G; off.height=G;
+const octx = off.getContext('2d', {willReadFrequently:true});
+function ingest(img, name){
+  const s = Math.min(img.width, img.height);
+  const sx = (img.width - s)/2, sy = (img.height - s)/2;
+  octx.clearRect(0,0,G,G);
+  octx.drawImage(img, sx, sy, s, s, 0, 0, G, G);
+  const rgba = octx.getImageData(0,0,G,G).data;
+  RAW.push({rgba:new Uint8ClampedArray(rgba), name:name||('img'+RAW.length)});
+  // normalized analysis vector: per-image zero-mean over all D, unit norm
+  const v = new Float32Array(D);
+  let m=0;
+  for(let i=0;i<G*G;i++){ v[i*3]=rgba[i*4]/255; v[i*3+1]=rgba[i*4+1]/255; v[i*3+2]=rgba[i*4+2]/255; }
+  for(let i=0;i<D;i++) m+=v[i]; m/=D;
+  let n=0; for(let i=0;i<D;i++){ v[i]-=m; n+=v[i]*v[i]; }
+  n=Math.sqrt(n)||1; for(let i=0;i<D;i++) v[i]/=n;
+  P.push(v);
+}
+
+// ---------- the snapshot eigentrick ----------
+function dotP(a,b){ let s=0; for(let i=0;i<D;i++) s+=a[i]*b[i]; return s; }
+function compute(){
+  const K = P.length;
+  if(K<2){ ghosts=[]; lambdas=[]; return; }
+  // Gram (overlaps) Gr = P Pᵀ , K×K
+  const Gr = [];
+  for(let i=0;i<K;i++){ Gr.push(new Float64Array(K)); }
+  for(let i=0;i<K;i++){ for(let j=i;j<K;j++){ const d=dotP(P[i],P[j]); Gr[i][j]=d; Gr[j][i]=d; } }
+  // top-NG eigenpairs by power iteration + Hotelling deflation
+  const k = Math.min(NG, K);
+  ghosts=[]; lambdas=[];
+  const work = Gr.map(r=>Float64Array.from(r));
+  for(let m=0;m<k;m++){
+    let v=new Float64Array(K); for(let i=0;i<K;i++) v[i]=Math.random()-0.5;
+    let nv=Math.hypot(...v)||1; for(let i=0;i<K;i++) v[i]/=nv;
+    let lam=0;
+    for(let it=0; it<400; it++){
+      const w=new Float64Array(K);
+      for(let i=0;i<K;i++){ const Wi=work[i]; let s=0; for(let j=0;j<K;j++) s+=Wi[j]*v[j]; w[i]=s; }
+      let nw=0; for(let i=0;i<K;i++) nw+=w[i]*w[i]; nw=Math.sqrt(nw); if(nw<1e-12) break;
+      for(let i=0;i<K;i++) w[i]/=nw; v=w; lam=nw;
+    }
+    // ghost in image space = Pᵀ v , normalized
+    const g=new Float32Array(D);
+    for(let j=0;j<K;j++){ const vj=v[j], Pj=P[j]; if(vj) for(let i=0;i<D;i++) g[i]+=vj*Pj[i]; }
+    let ng=0; for(let i=0;i<D;i++) ng+=g[i]*g[i]; ng=Math.sqrt(ng)||1; for(let i=0;i<D;i++) g[i]/=ng;
+    ghosts.push(g); lambdas.push(Math.max(lam,0));
+    // deflate
+    for(let i=0;i<K;i++){ const a=lam*v[i]; const wi=work[i]; for(let j=0;j<K;j++) wi[j]-=a*v[j]; }
+  }
+  // mean (raw) image
+  meanVec=new Float32Array(G*G*4);
+  for(const r of RAW){ for(let i=0;i<G*G*4;i++) meanVec[i]+=r.rgba[i]; }
+  for(let i=0;i<G*G*4;i++) meanVec[i]/=RAW.length;
+}
+
+// ---------- rendering ----------
+function renderRaw(canvas, rgba){
+  canvas.width=G; canvas.height=G;
+  const ctx=canvas.getContext('2d'); const im=ctx.createImageData(G,G);
+  for(let i=0;i<G*G*4;i++) im.data[i]=rgba[i];
+  for(let i=0;i<G*G;i++) im.data[i*4+3]=255;
+  ctx.putImageData(im,0,0);
+}
+function renderGhost(canvas, g){            // signed eigenvector -> contrast-stretched RGB
+  canvas.width=G; canvas.height=G;
+  const ctx=canvas.getContext('2d'); const im=ctx.createImageData(G,G);
+  let mn=1e9,mx=-1e9; for(let i=0;i<D;i++){ const x=g[i]; if(x<mn)mn=x; if(x>mx)mx=x; }
+  const rng=(mx-mn)||1;
+  for(let i=0;i<G*G;i++){
+    im.data[i*4]  =255*(g[i*3]-mn)/rng;
+    im.data[i*4+1]=255*(g[i*3+1]-mn)/rng;
+    im.data[i*4+2]=255*(g[i*3+2]-mn)/rng;
+    im.data[i*4+3]=255;
+  }
+  ctx.putImageData(im,0,0);
+}
+
+function paint(){
+  const K=P.length;
+  $('kcount').textContent = K? (K+' images · '+G+'×'+G) : '—';
+  if(K<2){ $('verdict').textContent='Need at least 2 images.'; return; }
+
+  renderRaw($('meanC'), meanVec);
+  renderGhost($('ghost0'), ghosts[0]);
+
+  // gallery
+  const sum=lambdas.reduce((a,b)=>a+b,0)||1;
+  const gal=$('gallery'); gal.innerHTML='';
+  ghosts.forEach((g,i)=>{
+    const d=document.createElement('div'); d.className='gtile'; d.style.animationDelay=(i*55)+'ms';
+    const cv=document.createElement('canvas'); renderGhost(cv,g);
+    const share=100*lambdas[i]/sum;
+    const gl=document.createElement('div'); gl.className='gl';
+    gl.innerHTML='<span>mode '+(i+1)+'</span><b>'+share.toFixed(0)+'%</b>';
+    const bar=document.createElement('div'); bar.className='bar2'; bar.innerHTML='<i style="width:'+Math.min(100,share)+'%"></i>';
+    d.appendChild(cv); d.appendChild(gl); d.appendChild(bar); gal.appendChild(d);
+  });
+
+  // spectrum
+  const spec=$('spec'); spec.innerHTML=''; const mxl=Math.max(...lambdas)||1;
+  lambdas.forEach((l,i)=>{ const c=document.createElement('div'); c.className='col';
+    c.style.height=Math.max(2,100*l/mxl)+'%'; const s=document.createElement('span'); s.textContent=i+1; c.appendChild(s); spec.appendChild(c); });
+
+  // dominance
+  const dom = lambdas.length>1 ? lambdas[0]/(lambdas[1]||1e-9) : 1;
+  const share1=100*lambdas[0]/sum;
+  const dn=$('domNum'); dn.textContent=dom>=10?Math.round(dom)+'×':dom.toFixed(1)+'×';
+  dn.className='num'+(dom<2?' flat':'');
+  let v;
+  if(dom>6) v='<b>Strongly shared.</b> One mode dominates — the Ghost above carries '+share1.toFixed(0)+'% of the shared structure. In a dataset that usually means a common background, lighting, framing or pose. If this is training data, it\'s a likely confound.';
+  else if(dom>2.5) v='<b>Moderately shared.</b> A leading mode stands out ('+share1.toFixed(0)+'% of the structure) but others contribute. The Ghost is real but not the whole story.';
+  else v='<b>Diverse.</b> No single mode dominates ('+share1.toFixed(0)+'% top mode) — the images don\'t share one strong visual axis. A flat spectrum like this is what a varied, low-confound set looks like.';
+  $('verdict').innerHTML=v;
+
+  // per-image typicality (load on top-3 ghosts)
+  const top=Math.min(3,ghosts.length);
+  const load=P.map(p=>{ let s=0; for(let m=0;m<top;m++){ const o=dotP(p,ghosts[m]); s+=o*o; } return Math.sqrt(s); });
+  const mu=load.reduce((a,b)=>a+b,0)/load.length;
+  const sd=Math.sqrt(load.reduce((a,b)=>a+(b-mu)*(b-mu),0)/load.length)||1;
+  const mxL=Math.max(...load)||1;
+  const strip=$('strip'); strip.innerHTML=''; let nOut=0;
+  // cap thumbnails shown for very large sets
+  const show=Math.min(RAW.length, 160);
+  for(let i=0;i<show;i++){
+    const out = load[i] < mu-1.0*sd; if(out) nOut++;
+    const d=document.createElement('div'); d.className='ptile'+(out?' out':'');
+    const cv=document.createElement('canvas'); cv.width=G; cv.height=G;
+    const ctx=cv.getContext('2d'); const im=ctx.createImageData(G,G);
+    for(let j=0;j<G*G*4;j++) im.data[j]=RAW[i].rgba[j];
+    for(let j=0;j<G*G;j++) im.data[j*4+3]=255; ctx.putImageData(im,0,0);
+    const tb=document.createElement('div'); tb.className='tb'; tb.innerHTML='<i style="width:'+(100*load[i]/mxL)+'%"></i>';
+    d.appendChild(cv); d.appendChild(tb);
+    if(out){ const t=document.createElement('div'); t.className='tag'; t.textContent='✱'; d.appendChild(t); }
+    strip.appendChild(d);
+  }
+  // count outliers across full set
+  let totalOut=0; for(let i=0;i<load.length;i++) if(load[i]<mu-1.0*sd) totalOut++;
+  $('stripnote').innerHTML = totalOut
+    ? '<b>'+totalOut+'</b> image'+(totalOut>1?'s':'')+' flagged atypical (low overlap with the shared modes — candidates for the odd one out, a mislabel, or junk).'+(RAW.length>show?' Showing first '+show+'.':'')
+    : 'No strong outliers — every image carries the shared modes.'+(RAW.length>show?' Showing first '+show+'.':'');
+
+  resetTour();
+}
+
+// ---------- living view: tour the modes ----------
+let tourF=null, tourTarget=0, tourHold=0, tourRAF=null;
+const tc=$('tour'), tcx=tc.getContext('2d');
+function targets(){ const T=[]; const mv=new Float32Array(D);
+  // mean as a normalized signed vector for the tour
+  for(let i=0;i<G*G;i++){ mv[i*3]=meanVec[i*4]/255; mv[i*3+1]=meanVec[i*4+1]/255; mv[i*3+2]=meanVec[i*4+2]/255; }
+  let m=0; for(let i=0;i<D;i++)m+=mv[i]; m/=D; let n=0; for(let i=0;i<D;i++){mv[i]-=m;n+=mv[i]*mv[i];} n=Math.sqrt(n)||1; for(let i=0;i<D;i++)mv[i]/=n;
+  T.push({v:mv,label:'the average'});
+  ghosts.forEach((g,i)=>{ const sum=lambdas.reduce((a,b)=>a+b,0)||1; T.push({v:g,label:'shared mode '+(i+1)+' · '+(100*lambdas[i]/sum).toFixed(0)+'% of structure'}); });
+  return T;
+}
+let TT=[];
+function resetTour(){
+  TT=targets(); tourTarget=0; tourHold=0;
+  tourF=Float32Array.from(TT[0].v);
+  if(!tourRAF) tourRAF=requestAnimationFrame(tourStep);
+}
+function tourStep(){
+  if(TT.length){
+    const tg=TT[tourTarget].v; let close=0;
+    for(let i=0;i<D;i++){ const d=tg[i]-tourF[i]; tourF[i]+=0.10*d; close+=d*d; }
+    // render contrast-stretched
+    const im=tcx.createImageData(G,G); let mn=1e9,mx=-1e9;
+    for(let i=0;i<D;i++){ const x=tourF[i]; if(x<mn)mn=x; if(x>mx)mx=x; } const rng=(mx-mn)||1;
+    for(let i=0;i<G*G;i++){ im.data[i*4]=255*(tourF[i*3]-mn)/rng; im.data[i*4+1]=255*(tourF[i*3+1]-mn)/rng; im.data[i*4+2]=255*(tourF[i*3+2]-mn)/rng; im.data[i*4+3]=255; }
+    tc.width=G; tc.height=G; tcx.putImageData(im,0,0);
+    $('tourcap').innerHTML='now forming: <b>'+TT[tourTarget].label+'</b>';
+    if(Math.sqrt(close)<0.06){ tourHold++; if(tourHold>34){ tourHold=0; tourTarget=(tourTarget+1)%TT.length; } }
+  }
+  tourRAF=requestAnimationFrame(tourStep);
+}
+
+// ---------- ghost card (shareable PNG) ----------
+$('card').onclick=()=>{
+  if(P.length<2){ return; }
+  const W=820, H=900, c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d');
+  x.fillStyle='#0b0c10'; x.fillRect(0,0,W,H);
+  x.fillStyle='#f0a830'; x.font='600 16px ui-monospace,monospace'; x.fillText('THE GHOSTS', 40, 56);
+  x.fillStyle='#8a8a99'; x.font='13px ui-monospace,monospace';
+  x.fillText('the strongest shared modes of '+P.length+' images', 40, 78);
+  const drawCv=(g,isMean,dx,dy,sz,label)=>{
+    const t=document.createElement('canvas'); if(isMean) renderRaw(t,g); else renderGhost(t,g);
+    x.imageSmoothingEnabled=false; x.drawImage(t,dx,dy,sz,sz);
+    x.fillStyle='#e9e6dd'; x.font='14px ui-monospace,monospace'; x.fillText(label,dx,dy+sz+22);
+  };
+  drawCv(meanVec,true,40,110,350,'the average');
+  drawCv(ghosts[0],false,430,110,350,'THE GHOST · strongest shared mode');
+  const sum=lambdas.reduce((a,b)=>a+b,0)||1;
+  for(let i=1;i<=3 && i<ghosts.length;i++) drawCv(ghosts[i],false,40+(i-1)*260,520,240,'mode '+(i+1)+' · '+(100*lambdas[i]/sum).toFixed(0)+'%');
+  const dom=lambdas[0]/(lambdas[1]||1e-9);
+  x.fillStyle='#f0a830'; x.font='600 30px ui-monospace,monospace';
+  x.fillText((dom>=10?Math.round(dom):dom.toFixed(1))+'×  dominance', 40, 838);
+  x.fillStyle='#5a5b68'; x.font='12px ui-monospace,monospace';
+  x.fillText('PerceptionLab · made in your browser · nothing uploaded', 40, 868);
+  const a=document.createElement('a'); a.download='ghost-card.png'; a.href=c.toDataURL('image/png'); a.click();
+};
+
+// ---------- loading flow ----------
+function recompute(){
+  $('verdict').innerHTML='<span class="spin"></span>finding the ghosts…';
+  setTimeout(()=>{ compute(); paint(); }, 30);
+}
+function loadFiles(files){
+  const arr=[...files].filter(f=>f.type.startsWith('image/')); if(!arr.length) return;
+  let done=0;
+  arr.forEach(f=>{ const img=new Image();
+    img.onload=()=>{ ingest(img, f.name.slice(0,10)); URL.revokeObjectURL(img.src); if(++done===arr.length) recompute(); };
+    img.onerror=()=>{ if(++done===arr.length) recompute(); };
+    img.src=URL.createObjectURL(f); });
+}
+$('file').onchange=e=>{ RAW=[];P=[]; loadFiles(e.target.files); e.target.value=''; };
+const drop=$('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',e=>{ RAW=[];P=[]; loadFiles(e.dataTransfer.files); });
+
+// ---------- procedural demo sets (so it works offline on load) ----------
+function rnd(){return Math.random()*2-1;}
+function makeImg(fn){ // fn(x,y)->[r,g,b] in 0..1
+  const im=octx.createImageData(G,G);
+  for(let yy=0;yy<G;yy++)for(let xx=0;xx<G;xx++){ const c=fn(xx/(G-1),yy/(G-1)); const i=(yy*G+xx)*4;
+    im.data[i]=255*Math.max(0,Math.min(1,c[0])); im.data[i+1]=255*Math.max(0,Math.min(1,c[1])); im.data[i+2]=255*Math.max(0,Math.min(1,c[2])); im.data[i+3]=255; }
+  octx.putImageData(im,0,0);
+  const r=octx.getImageData(0,0,G,G).data; RAW.push({rgba:new Uint8ClampedArray(r),name:'demo'});
+  const v=new Float32Array(D); let m=0;
+  for(let i=0;i<G*G;i++){ v[i*3]=r[i*4]/255; v[i*3+1]=r[i*4+1]/255; v[i*3+2]=r[i*4+2]/255; }
+  for(let i=0;i<D;i++)m+=v[i]; m/=D; let n=0; for(let i=0;i<D;i++){v[i]-=m;n+=v[i]*v[i];} n=Math.sqrt(n)||1; for(let i=0;i<D;i++)v[i]/=n; P.push(v);
+}
+function demoLandscapes(){
+  RAW=[];P=[];
+  for(let k=0;k<120;k++){
+    const hor=0.45+0.12*rnd();                 // horizon height varies a little
+    const skyR=0.45+0.18*Math.random(), skyG=0.6+0.16*Math.random(), skyB=0.8+0.18*Math.random();
+    const grR=0.3+0.18*Math.random(), grG=0.32+0.16*Math.random(), grB=0.18+0.12*Math.random();
+    const fx=1+((Math.random()*3)|0), ph=rnd()*3, amp=0.10*Math.random();
+    makeImg((x,y)=>{ const sky=y<hor; const t=sky?y/hor:(y-hor)/(1-hor);
+      const bump=amp*Math.sin(2*Math.PI*fx*x+ph);
+      if(sky) return [skyR-0.1*t+bump, skyG-0.08*t+bump, skyB-0.05*t+bump];
+      return [grR+0.08*t+bump, grG+0.06*t+bump, grB+0.04*t+bump]; });
+  }
+  recompute();
+}
+function demoDiverse(){
+  RAW=[];P=[];
+  const kinds=8;
+  for(let k=0;k<96;k++){
+    const kind=k%kinds, ph=rnd()*6, fx=1+((Math.random()*4)|0), fy=1+((Math.random()*4)|0);
+    const cr=Math.random(),cg=Math.random(),cb=Math.random();
+    makeImg((x,y)=>{ let a;
+      switch(kind){
+        case 0: a=Math.sin(2*Math.PI*fx*x+ph); break;
+        case 1: a=Math.sin(2*Math.PI*fy*y+ph); break;
+        case 2: a=Math.sin(2*Math.PI*fx*(x+y)+ph); break;
+        case 3: { const dx=x-.5,dy=y-.5; a=Math.sin(12*Math.sqrt(dx*dx+dy*dy)+ph); break; }
+        case 4: { const dx=x-.5,dy=y-.5; a=Math.sin(2*Math.PI*2*x+ph)*Math.exp(-(dx*dx+dy*dy)*8); break; }
+        case 5: a=(((x*fx)%1)<0.5?1:-1)*0.8; break;
+        case 6: a=Math.sin(2*Math.PI*fx*x+ph)*Math.cos(2*Math.PI*fy*y+ph); break;
+        default: a=rnd();
+      }
+      a=0.5+0.4*a; return [a*cr+0.15, a*cg+0.15, a*cb+0.15]; });
+  }
+  recompute();
+}
+$('demoH').onclick=demoLandscapes;
+$('demoF').onclick=demoDiverse;
+
+// boot
+demoLandscapes();
+</script>
+</body>
+</html>
