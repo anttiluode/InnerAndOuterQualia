@@ -26,6 +26,8 @@ The inner side is the candidate for what is *felt*. The outer side is what an el
 
 **`ephaptic_spiking_field_gamma.py`** + **`ephaptic_spiking_field_gamma.png`** — the v2 build: nested theta–gamma. The reference engine and figure for the result below.
 
+![pic2](ephaptic_spiking_field_gamma.png)
+
 **`the_nested_gamma_step.md`** — what adding gamma actually did, and the two corrections it forced.
 
 ---
