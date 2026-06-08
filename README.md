@@ -1,5 +1,7 @@
 # Inner and Outer Qualia — the Ephaptic Spiking Field
 
+(EDIT: Added the membrane to qualia synthesis document - attempt to see the actual neurobiology vs our model) 
+
 *Part of the PerceptionLab / Geometric Neuron series.*
 Repo: [anttiluode/InnerAndOuterQualia](https://github.com/anttiluode/InnerAndOuterQualia)
 
